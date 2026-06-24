@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inspectie Rapport App</title>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script>
+  if (typeof msal === 'undefined') {
+    document.write('<scr'+'ipt src="https://unpkg.com/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"><\/scr'+'ipt>');
+  }
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --primary: #5b5fc7;
+    --primary-dark: #4b50b0;
+    --primary-light: #ebebf8;
+    --bg: #f0f0f8;
+    --surface: #ffffff;
+    --border: #e0e0f0;
+    --text: #1a1a2e;
+    --text-muted: #896b8a;
+    --danger: #d32f2f;
+    --success: #2e7d32;
+    --radius: 8px;
+    --shadow: 0 2px 8px rgba(91,95,199,0.10);
+    --transition: 0.18s ease;
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ---- TOP NAV ---- */
+  .navbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 56px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow);
+  }
+  .navbar-brand {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--primary);
+    letter-spacing: -0.3px;
+  }
+  .navbar-spacer { flex: 1; }
+  .navbar-user {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: none;
+  }
+
+  /* ---- PAGE SHELL ---- */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 20px;
+  }
+
+  /* ---- HOME PAGE ---- */
+  .home-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .home-header h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background var(--transition), box-shadow var(--transition);
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 1.5px solid var(--primary);
+  }
+  .btn-outline:hover { background: var(--primary-light); }
+  .btn-sm { padding: 6px 13px; font-size: 0.82rem; }
+
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 180px;
+    max-width: 320px;
+    padding: 8px 14px 8px 36px;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b6b8a' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center;
+    outline: none;
+  }
+  .search-input:focus { border-color: var(--primary); }
+  .results-count {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  /* ---- TABLE ---- */
+  .table-wrap {
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+  thead tr {
+    background: var(--bg);
+    border-bottom: 1.5px solid var(--border);
+  }
+  th {
+    padding: 11px 14px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    font-size: 0.84rem;
+  }
+  th.check-col, td.check-col { width: 36px; }
+  td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr.group-row td {
+    background: var(--bg);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr:not(.group-row):hover { background: #f7f7fd; }
+
+  .insp-title { font-weight: 500; color: var(--text); }
+  .insp-sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+  .avatar {
+    width: 32px; height: 32px;
+    background: var(--primary-light);
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700; color: var(--primary);
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+  .insp-cell { display: flex; align-items: center; }
+  .score-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .score-high { background: #e8f5e9; color: #2e7d32; }
+  .score-mid  { background: #fff3e0; color: #e65100; }
+  .score-low  { background: #fce4ec; color: #c62828; }
+
+  .view-report-link {
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.83rem;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .view-report-link:hover { text-decoration: underline; }
+
+  .loading-row td {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* ---- FORM SHELL ---- */
+  .form-page-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 24px 20px;
+  }
+  .progress-bar-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: var(--shadow);
+  }
+  .progress-label { font-size: 0.85rem; color: var(--text-muted); flex-shrink: 0; }
+  .progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .score-label { font-size: 0.82rem; color: var(--text-muted); flex-shrink: 0; }
+
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .section-header {
+    background: var(--primary);
+    color: #fff;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  .section-score { font-size: 0.8rem; opacity: 0.85; }
+
+  .field-block {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 18px 10px;
+  }
+  .field-block:last-child { border-bottom: none; }
+  .field-block.required .field-label::before {
+    content: '* ';
+    color: var(--danger);
+  }
+  .field-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .field-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.87rem;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+    transition: border-color var(--transition);
+    font-family: inherit;
+  }
+  .field-input:focus { border-color: var(--primary); }
+  textarea.field-input { resize: vertical; min-height: 80px; }
+
+  .field-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: var(--primary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 0;
+    font-weight: 500;
+  }
+  .action-btn:hover { text-decoration: underline; }
+  .action-btn.has-data { color: var(--success); font-weight: 600; }
+
+  .note-area { margin-top: 8px; }
+
+  .media-preview-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .media-thumb {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .media-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .media-thumb-remove {
+    position: absolute;
+    top: 2px; right: 2px;
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    width: 16px; height: 16px;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; line-height: 1;
+  }
+  .btn-submit {
+    background: #2e7d32;
+    color: #fff;
+    border-color: #2e7d32;
+  }
+  .btn-submit:hover { background: #1b5e20; }
+
+  /* tri-state buttons */
+  .tri-group { display: flex; gap: 0; }
+  .tri-btn {
+    flex: 1;
+    padding: 8px 4px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-size: 0.83rem;
+    cursor: pointer;
+    text-align: center;
+    color: var(--text);
+    transition: background var(--transition), color var(--transition);
+    font-family: inherit;
+  }
+  .tri-btn:first-child { border-radius: 5px 0 0 5px; }
+  .tri-btn:last-child  { border-radius: 0 5px 5px 0; }
+  .tri-btn:not(:first-child) { border-left: none; }
+  .tri-btn.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+  /* component state buttons */
+  .state-group { display: flex; gap: 0; }
+  .state-btn {
+    flex: 1;
+    padding: 8px 4px;
+    border: 1.5px solid var(--border);
+    background: #fff;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-align: center;
+    color: var(--text);
+    transition: background var(--transition), color var(--transition);
+    font-family: inherit;
+  }
+  .state-btn:first-child { border-radius: 5px 0 0 5px; }
+  .state-btn:last-child  { border-radius: 0 5px 5px 0; }
+  .state-btn:not(:first-child) { border-left: none; }
+  .state-btn.selected-good { background: #e8f5e9; color: #2e7d32; border-color: #66bb6a; }
+  .state-btn.selected-damaged { background: #fff3e0; color: #e65100; border-color: #ffa726; }
+  .state-btn.selected-replaced { background: #fce4ec; color: #c62828; border-color: #ef5350; }
+
+  /* nav buttons */
+  .form-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 0 8px;
+    gap: 12px;
+  }
+  .btn-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 22px;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1.5px solid var(--primary);
+    cursor: pointer;
+    transition: background var(--transition);
+    font-family: inherit;
+  }
+  .btn-nav-prev { background: #fff; color: var(--primary); }
+  .btn-nav-prev:hover { background: var(--primary-light); }
+  .btn-nav-next { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .btn-nav-next:hover { background: var(--primary-dark); }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--text);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    z-index: 999;
+    transition: transform 0.3s ease;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--success); }
+  .toast.error   { background: var(--danger); }
+
+  /* responsive */
+  @media (max-width: 600px) {
+    .home-header h1 { font-size: 1.2rem; }
+    th, td { padding: 9px 8px; font-size: 0.8rem; }
+    .hide-mobile { display: none; }
+    .form-page-wrap { padding: 16px 12px; }
+    .field-block { padding: 12px 12px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <span class="navbar-brand">📋 Inspectie App</span>
+  <div class="navbar-spacer"></div>
+  <span class="navbar-user" id="userDisplay"></span>
+  <button class="btn btn-outline btn-sm" onclick="showPage('home')">Alle inspecties</button>
+  <button class="btn btn-outline btn-sm" id="btnLogin" onclick="handleLogin()">🔑 Aanmelden</button>
+  <button class="btn btn-outline btn-sm" id="btnLogout" onclick="handleLogout()" style="display:none;">Afmelden</button>
+</nav>
+
+<!-- ===== PAGE: HOME ===== -->
+<div id="page-home" class="page active">
+  <div class="container">
+    <div class="home-header">
+      <h1>Inspecties</h1>
+      <button class="btn btn-primary" onclick="startNewInspection()">+ Start inspectie</button>
+    </div>
+
+    <div class="filter-bar">
+      <input class="search-input" id="searchInput" type="text" placeholder="Zoeken..."
+             oninput="filterTable()" />
+      <button class="btn btn-outline btn-sm" onclick="loadInspections()">↻ Vernieuwen</button>
+      <span class="results-count" id="resultsCount"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="inspTable">
+        <thead>
+          <tr>
+            <th class="check-col"><input type="checkbox" /></th>
+            <th>Inspectie</th>
+            <th class="hide-mobile">Doc nummer</th>
+            <th>Score</th>
+            <th class="hide-mobile">Uitgevoerd</th>
+            <th class="hide-mobile">Voltooid ↓</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="inspTableBody">
+          <tr class="loading-row"><td colspan="7">Laden…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PAGE: FORM ===== -->
+<div id="page-form" class="page">
+  <div class="form-page-wrap">
+
+    <!-- Progress bar -->
+    <div class="progress-bar-wrap">
+      <span class="progress-label" id="formPageLabel">Pagina 1 van 4</span>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:25%"></div>
+      </div>
+      <span class="score-label" id="formScoreLabel">Score 0 / 0</span>
+    </div>
+
+    <!-- Page title -->
+    <h2 id="formPageTitle" style="margin-bottom:16px; font-size:1.1rem; color:var(--text-muted);">Titelpagina</h2>
+
+    <!-- Form sections rendered here -->
+    <div id="formContent"></div>
+
+    <div class="form-nav">
+      <button class="btn-nav btn-nav-prev" id="btnPrev" onclick="prevPage()">‹ Vorige pagina</button>
+      <button class="btn-nav btn-submit" id="btnSubmit" onclick="submitPage()" style="display:none;">💾 Opslaan</button>
+      <button class="btn-nav btn-nav-next" id="btnNext" onclick="nextPage()">Volgende pagina ›</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// =====================================================================
+// CONFIGURATION
+// =====================================================================
+const SHAREPOINT_SITE_URL  = "https://industrialpump-my.sharepoint.com/personal/beheer_industrialpumps_nl";
+const SHAREPOINT_LIST_NAME = "Inspect report migration";
+const AZURE_CLIENT_ID      = "4b558c38-9070-46de-b780-3ecb6bbc5f83";
+const AZURE_TENANT_ID      = "55a84428-abf8-47f5-8870-ca08c2e16af7";
+// =====================================================================
+
+// ---------- MSAL ----------
+const _msalCfg = {
+  auth: {
+    clientId: AZURE_CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${AZURE_TENANT_ID}`,
+    redirectUri: 'http://localhost:3000/inspection-app_4.html',
+    navigateToLoginRequestUrl: false,
+  },
+  cache: { cacheLocation: 'localStorage', storeAuthStateInCookie: false }
+};
+const _scopes = { scopes: ['https://graph.microsoft.com/Sites.ReadWrite.All'] };
+
+let msalApp = null;
+let msalReady = null;
+let currentAccount = null;
+let _siteId = null;
+let _listId = null;
+
+async function initApp() {
+  if (window.location.protocol === 'file:') {
+    setTableError('Open dit bestand via een webserver. Gebruik: python -m http.server 3000');
+    document.getElementById('btnLogin').disabled = true;
+    document.getElementById('btnLogin').textContent = '⚠️ Gebruik webserver';
+    throw new Error('file:// protocol niet ondersteund.');
+  }
+  if (typeof msal === 'undefined') {
+    setTableError('MSAL bibliotheek niet geladen. Controleer internetverbinding en ververs de pagina.');
+    throw new Error('MSAL niet geladen');
+  }
+  try {
+    msalApp = new msal.PublicClientApplication(_msalCfg);
+    await msalApp.initialize();
+    const redirectResult = await msalApp.handleRedirectPromise().catch(() => null);
+    if (redirectResult && redirectResult.account) {
+      currentAccount = redirectResult.account;
+    } else {
+      const accounts = msalApp.getAllAccounts();
+      if (accounts.length > 0) currentAccount = accounts[0];
+    }
+    updateAuthUI();
+    if (currentAccount) {
+      loadInspections();
+    } else {
+      showLoginPrompt();
+    }
+  } catch (e) {
+    console.error('MSAL init fout:', e);
+    setTableError('Initialisatiefout: ' + (e.errorCode || e.message || JSON.stringify(e)));
+    updateAuthUI();
+    throw e;
+  }
+}
+
+function setTableError(msg) {
+  document.getElementById('inspTableBody').innerHTML =
+    `<tr class="loading-row"><td colspan="7">⚠️ ${msg}</td></tr>`;
+  document.getElementById('resultsCount').textContent = 'Fout';
+}
+
+async function handleLogin() {
+  try {
+    await msalReady;
+  } catch (e) {
+    showToast('Fout: ' + (e.errorCode || e.message || e), 'error');
+    return;
+  }
+  if (!msalApp) {
+    showToast('MSAL niet geladen. Ververs de pagina.', 'error');
+    return;
+  }
+  const btn = document.getElementById('btnLogin');
+  btn.disabled = true;
+  btn.textContent = 'Aanmelden…';
+  try {
+    await msalApp.loginRedirect(_scopes);
+  } catch (e) {
+    console.error('Login mislukt:', e);
+    showToast('Aanmelden mislukt: ' + (e.message || e), 'error');
+    updateAuthUI();
+  }
+}
+
+async function handleLogout() {
+  await msalReady;
+  currentAccount = null;
+  _siteId = null;
+  _listId = null;
+  try {
+    await msalApp.logoutRedirect({ account: currentAccount });
+  } catch (e) {
+    updateAuthUI();
+    showLoginPrompt();
+  }
+}
+
+function updateAuthUI() {
+  const loginBtn  = document.getElementById('btnLogin');
+  const logoutBtn = document.getElementById('btnLogout');
+  const userDisp  = document.getElementById('userDisplay');
+  if (currentAccount) {
+    loginBtn.style.display  = 'none';
+    logoutBtn.style.display = '';
+    userDisp.style.display  = '';
+    userDisp.textContent    = currentAccount.name || currentAccount.username;
+  } else {
+    loginBtn.style.display    = '';
+    loginBtn.disabled         = false;
+    loginBtn.textContent      = '🔑 Aanmelden';
+    logoutBtn.style.display   = 'none';
+    userDisp.style.display    = 'none';
+    userDisp.textContent      = '';
+  }
+}
+
+function showLoginPrompt() {
+  document.getElementById('inspTableBody').innerHTML =
+    '<tr class="loading-row"><td colspan="7">🔒 Meld u aan om inspecties te bekijken.</td></tr>';
+  document.getElementById('resultsCount').textContent = '';
+}
+
+async function getToken() {
+  if (!currentAccount) throw new Error('Niet aangemeld');
+  try {
+    const r = await msalApp.acquireTokenSilent({ ..._scopes, account: currentAccount });
+    return r.accessToken;
+  } catch {
+    const r = await msalApp.acquireTokenPopup({ ..._scopes, account: currentAccount });
+    return r.accessToken;
+  }
+}
+
+async function graphFetch(url, opts = {}) {
+  const token = await getToken();
+  return fetch(url, {
+    ...opts,
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
+}
+
+async function getSiteId() {
+  if (_siteId) return _siteId;
+  const u = new URL(SHAREPOINT_SITE_URL);
+  const r = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${u.hostname}:${u.pathname}`);
+  if (!r.ok) throw new Error('SharePoint-site niet bereikbaar (HTTP ' + r.status + ')');
+  const d = await r.json();
+  _siteId = d.id;
+  return _siteId;
+}
+
+async function getListId() {
+  if (_listId) return _listId;
+  const sid = await getSiteId();
+  const r = await graphFetch(`https://graph.microsoft.com/v1.0/sites/${sid}/lists`);
+  if (!r.ok) throw new Error('Lijsten ophalen mislukt (HTTP ' + r.status + ')');
+  const d = await r.json();
+  const found = (d.value || []).find(l => l.displayName === SHAREPOINT_LIST_NAME);
+  if (!found) throw new Error(`Lijst "${SHAREPOINT_LIST_NAME}" niet gevonden`);
+  _listId = found.id;
+  return _listId;
+}
+
+// ---------- Navigation ----------
+let currentPage = 'home';
+let currentFormPage = 1;
+const TOTAL_FORM_PAGES = 4;
+const formData    = {};
+const fieldNotes  = {};
+const fieldImages = {};
+const pageResults = {};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  currentPage = id;
+}
+
+function startNewInspection() {
+  Object.keys(formData).forEach(k => delete formData[k]);
+  Object.keys(fieldNotes).forEach(k => delete fieldNotes[k]);
+  Object.keys(fieldImages).forEach(k => delete fieldImages[k]);
+  Object.keys(pageResults).forEach(k => delete pageResults[k]);
+  currentFormPage = 1;
+  renderFormPage(1);
+  showPage('form');
+}
+
+// ---------- Toast ----------
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ---------- Load inspections ----------
+let allInspections = [];
+
+async function loadInspections() {
+  if (!currentAccount) { showLoginPrompt(); return; }
+  document.getElementById('resultsCount').textContent = 'Laden…';
+  document.getElementById('inspTableBody').innerHTML =
+    '<tr class="loading-row"><td colspan="7">Inspecties worden geladen…</td></tr>';
+  try {
+    const sid = await getSiteId();
+    const lid = await getListId();
+    const sel = 'id,Title,Inspection,Docnumber,Score,Conducted,Completed,Status';
+    const r = await graphFetch(
+      `https://graph.microsoft.com/v1.0/sites/${sid}/lists/${lid}/items?$expand=fields($select=${sel})&$top=500`
+    );
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    allInspections = (d.value || []).map(item => ({
+      Id:         item.id,
+      Inspection: item.fields?.Inspection || item.fields?.Title || '',
+      Docnumber:  item.fields?.Docnumber  || '',
+      Score:      item.fields?.Score      || '',
+      Conducted:  item.fields?.Conducted  || '',
+      Completed:  item.fields?.Completed  || '',
+      Status:     item.fields?.Status     || '',
+    }));
+    allInspections.sort((a, b) => (b.Completed || '').localeCompare(a.Completed || ''));
+    renderTable(allInspections);
+  } catch (e) {
+    document.getElementById('inspTableBody').innerHTML =
+      `<tr class="loading-row"><td colspan="7">⚠️ ${e.message}</td></tr>`;
+    document.getElementById('resultsCount').textContent = 'Fout';
+    console.error('Laad fout:', e);
+  }
+}
+
+function scoreBadge(score) {
+  if (!score) return '<span class="score-badge">—</span>';
+  const val = parseFloat(score);
+  const cls = val >= 90 ? 'score-high' : val >= 70 ? 'score-mid' : 'score-low';
+  return `<span class="score-badge ${cls}">${score}</span>`;
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderTable(rows) {
+  const tbody = document.getElementById('inspTableBody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr class="loading-row"><td colspan="7">Geen inspecties gevonden.</td></tr>';
+    document.getElementById('resultsCount').textContent = '0 resultaten';
+    return;
+  }
+  let html = '';
+  rows.forEach(row => {
+    const initials = (row.Inspection || 'XX').substring(0, 2).toUpperCase();
+    html += `<tr>
+      <td class="check-col"><input type="checkbox" /></td>
+      <td>
+        <div class="insp-cell">
+          <span class="avatar">${initials}</span>
+          <div>
+            <div class="insp-title">${row.Inspection || '—'}</div>
+            <div class="insp-sub">${row.Status || ''}</div>
+          </div>
+        </div>
+      </td>
+      <td class="hide-mobile">${row.Docnumber || '—'}</td>
+      <td>${scoreBadge(row.Score)}</td>
+      <td class="hide-mobile">${fmtDate(row.Conducted)}</td>
+      <td class="hide-mobile">${fmtDate(row.Completed)}</td>
+      <td><a class="view-report-link" onclick="viewReport('${row.Id}')">Bekijk rapport</a></td>
+    </tr>`;
+  });
+  tbody.innerHTML = html;
+  document.getElementById('resultsCount').textContent = `1 – ${rows.length} van ${rows.length} resultaten`;
+}
+
+function filterTable() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = allInspections.filter(r =>
+    (r.Inspection || '').toLowerCase().includes(q) ||
+    (r.Docnumber  || '').toLowerCase().includes(q) ||
+    (r.Status     || '').toLowerCase().includes(q)
+  );
+  renderTable(filtered);
+}
+
+function viewReport(id) {
+  showToast('Rapport openen…');
+}
+
+// ---------- Form pages ----------
+const formPages = [
+  {
+    title: 'Titelpagina',
+    sections: [
+      {
+        header: 'Algemene gegevens',
+        showScore: true,
+        fields: [
+          { key: 'ReferentienummerIPG', label: 'Referentienummer IPG', type: 'text', required: true },
+          { key: 'Klant',               label: 'Klant',                type: 'text', required: true },
+          { key: 'FabrikaatPomp',       label: 'Fabrikaat pomp',       type: 'text', required: true },
+          { key: 'Pomptype',            label: 'Pomptype',             type: 'text', required: true },
+          { key: 'Serienummer',         label: 'Serienummer',          type: 'text', required: true },
+          { key: 'DatumInspectie',      label: 'Datum inspectie',      type: 'date', required: true, default: new Date().toISOString().split('T')[0] },
+        ]
+      },
+      {
+        header: 'Informatie over pomp',
+        showScore: true,
+        fields: [
+          { key: 'MediumVanDePomp',    label: 'Medium van de pomp',                type: 'text',     required: false },
+          { key: 'IsGespoeldAfgevlamd', label: 'Is de pomp gespoeld of afgevlamd?', type: 'tristate', required: true },
+          { key: 'IsOlieAfgetapt',     label: 'Is de olie afgetapt?',              type: 'tristate', required: true },
+          { key: 'VGMVerklaring',      label: 'Is er een VGM-verklaring bijgevoegd?', type: 'tristate', required: true },
+        ]
+      }
+    ]
+  },
+  {
+    title: 'Gegevens',
+    sections: [
+      {
+        header: 'Gegevens',
+        showScore: true,
+        fields: [
+          { key: 'WaterDiameter', label: 'Water diameter', type: 'text' },
+          { key: 'Capaciteit',    label: 'Capaciteit',     type: 'text' },
+          { key: 'Opvoerhoogte',  label: 'Opvoerhoogte',   type: 'text' },
+          { key: 'Toerental',     label: 'Toerental',      type: 'text' },
+        ]
+      },
+      {
+        header: 'Gegevens aandrijving',
+        showScore: false,
+        fields: [
+          { key: 'FabrikaatMotor',        label: 'Fabrikaat motor',              type: 'text' },
+          { key: 'Vermogen',              label: 'Vermogen',                     type: 'text' },
+          { key: 'Isolatieklasse',        label: 'Isolatieklasse',               type: 'text' },
+          { key: 'OmwentelingenPerMinuut', label: 'Omwentelingen per minuut (rpm)', type: 'text' },
+          { key: 'FrameNummer',           label: 'Frame nummer',                 type: 'text' },
+          { key: 'Frequentie',            label: 'Frequentie',                   type: 'text' },
+          { key: 'Voltage',               label: 'Voltage',                      type: 'text' },
+          { key: 'Amperage',              label: 'Ampèrage',                     type: 'text' },
+          { key: 'SerieNummer2',          label: 'Serie nummer',                 type: 'text' },
+        ]
+      }
+    ]
+  },
+  {
+    title: 'Bevindingen',
+    sections: [
+      {
+        header: 'Onderdelen',
+        showScore: true,
+        fields: [
+          { key: 'Rotor',     label: 'Rotor',                              type: 'state', required: true },
+          { key: 'Stator',    label: 'Stator',                             type: 'state', required: true },
+          { key: 'As',        label: 'As',                                 type: 'state', required: true },
+          { key: 'Koppeling', label: 'Koppeling (incl. pennen & bussen)',  type: 'state', required: true },
+          { key: 'Pakkingen', label: 'Pakkingen / O-ringen',               type: 'state', required: true },
+          { key: 'MechSeal',  label: 'Mechanical seal',                    type: 'state', required: true },
+          { key: 'Slijringen', label: 'Slijringen',                        type: 'state', required: true },
+          { key: 'Lagering',  label: 'Lagering',                           type: 'state', required: true },
+          { key: 'Pompfluis', label: 'Pompfluis',                          type: 'state', required: true },
+          { key: 'Waaier',    label: 'Waaier',                             type: 'state', required: true },
+        ]
+      },
+      {
+        header: 'Overige bevindingen',
+        showScore: false,
+        fields: [
+          { key: 'OverigeBevindingen', label: 'Omschrijving', type: 'textarea' }
+        ]
+      }
+    ]
+  },
+  {
+    title: 'Uren en benodigde onderdelen',
+    sections: [
+      {
+        header: 'Aantal gemaakte uren',
+        showScore: false,
+        fields: [
+          { key: 'UrenOntvangst',  label: 'Ontvangst',  type: 'number' },
+          { key: 'UrenSchoonmaak', label: 'Schoonmaak', type: 'number' },
+          { key: 'UrenDemontage',  label: 'Demontage',  type: 'number' },
+          { key: 'UrenInspectie',  label: 'Inspectie',  type: 'number' },
+        ]
+      },
+      {
+        header: 'Schatting benodigde uren',
+        showScore: false,
+        fields: [
+          { key: 'SchattingMontage',       label: 'Montage',                         type: 'number' },
+          { key: 'SchattingSpuiten',       label: 'Spuiten',                         type: 'number' },
+          { key: 'SchattingAfsersen',      label: 'Afsersen',                        type: 'number' },
+          { key: 'SchattingEindinspectie', label: 'Eindinspectie en gereed maken',   type: 'number' },
+        ]
+      },
+      {
+        header: 'Onderdelen',
+        showScore: false,
+        fields: [
+          { key: 'BenodigenOnderdelen',   label: 'Benodigde onderdelen (bijvoorkeur positienummers)', type: 'textarea' },
+          { key: 'OnderdelenDerdepartij', label: 'Onderdelen uitbesteden aan derde partij',           type: 'textarea' },
+        ]
+      }
+    ]
+  }
+];
+
+// ---------- Render a form page ----------
+function renderFormPage(pageNum) {
+  currentFormPage = pageNum;
+  const def = formPages[pageNum - 1];
+
+  document.getElementById('formPageLabel').textContent = `Pagina ${pageNum} van ${TOTAL_FORM_PAGES}`;
+  document.getElementById('formPageTitle').textContent = def.title;
+  document.getElementById('progressFill').style.width = (pageNum / TOTAL_FORM_PAGES * 100) + '%';
+
+  let totalRequired = 0, scored = 0;
+  def.sections.forEach(s => s.fields.forEach(f => {
+    if (f.required) { totalRequired++; if (formData[f.key]) scored++; }
+  }));
+  document.getElementById('formScoreLabel').textContent = `Score ${scored} / ${totalRequired}`;
+
+  document.getElementById('btnPrev').style.visibility = pageNum === 1 ? 'hidden' : 'visible';
+  document.getElementById('btnSubmit').style.display = pageNum === TOTAL_FORM_PAGES ? '' : 'none';
+  const btnNext = document.getElementById('btnNext');
+  btnNext.textContent = pageNum === TOTAL_FORM_PAGES ? 'Inspectie voltooien ✓' : 'Volgende pagina ›';
+
+  let html = '';
+  def.sections.forEach(sec => {
+    const scoreHtml = sec.showScore
+      ? `<span class="section-score">0 / ${sec.fields.filter(f => f.required).length} (0%)</span>`
+      : '';
+    html += `<div class="form-card" style="margin-bottom:18px;">`;
+    html += `<div class="section-header">${sec.header}${scoreHtml ? ' ' + scoreHtml : ''}</div>`;
+
+    sec.fields.forEach(f => {
+      html += `<div class="field-block ${f.required ? 'required' : ''}">`;
+      html += `<label class="field-label" for="field_${f.key}">${f.label}</label>`;
+      const val = formData[f.key] || f.default || '';
+
+      if (f.type === 'tristate') {
+        html += `<div class="tri-group">`;
+        ['Ja', 'Nee', 'N/B'].forEach(o => {
+          html += `<button type="button" class="tri-btn ${val === o ? 'selected' : ''}" onclick="setField('${f.key}','${o}',this,'tri-btn')">${o}</button>`;
+        });
+        html += `</div>`;
+      } else if (f.type === 'state') {
+        const opts = [
+          { label: 'Goede staat',          cls: 'selected-good' },
+          { label: 'Beschadigd / slijtage', cls: 'selected-damaged' },
+          { label: 'Vervangen',             cls: 'selected-replaced' },
+        ];
+        html += `<div class="state-group">`;
+        opts.forEach(o => {
+          html += `<button type="button" class="state-btn ${val === o.label ? o.cls : ''}" onclick="setStateField('${f.key}','${o.label}','${o.cls}',this)">${o.label}</button>`;
+        });
+        html += `</div>`;
+      } else if (f.type === 'textarea') {
+        html += `<textarea class="field-input" id="field_${f.key}" onchange="formData['${f.key}']=this.value">${val}</textarea>`;
+      } else {
+        const t = f.type === 'number' ? 'number' : f.type === 'date' ? 'date' : 'text';
+        html += `<input class="field-input" id="field_${f.key}" type="${t}" value="${val}" onchange="formData['${f.key}']=this.value" />`;
+      }
+
+      const noteVal  = fieldNotes[f.key]  || '';
+      const imgCount = (fieldImages[f.key] || []).length;
+      const imgPrevHtml = (fieldImages[f.key] || []).map((src, i) => `
+        <div class="media-thumb">
+          <img src="${src}" alt="afbeelding ${i+1}" />
+          <button class="media-thumb-remove" onclick="removeMedia('${f.key}',${i})" title="Verwijderen">×</button>
+        </div>`).join('');
+
+      html += `<div class="field-actions">
+        <button class="action-btn ${noteVal ? 'has-data' : ''}" onclick="toggleNote('${f.key}')">
+          📝 ${noteVal ? 'Notitie bewerken ✓' : 'Notitie toevoegen'}
+        </button>
+        <button class="action-btn ${imgCount ? 'has-data' : ''}" id="mediaBtn_${f.key}" onclick="triggerMedia('${f.key}')">
+          📎 Media toevoegen${imgCount ? ' (' + imgCount + ')' : ''}
+        </button>
+        <button class="action-btn">⚡ Actie aanmaken</button>
+      </div>
+      <div class="note-area" id="note_${f.key}" style="display:${noteVal ? 'block' : 'none'}">
+        <textarea class="field-input" style="min-height:60px;margin-top:6px;" placeholder="Voer notitie in..."
+          onchange="fieldNotes['${f.key}']=this.value;updateNoteBtn('${f.key}')">${noteVal}</textarea>
+      </div>
+      <input type="file" id="fileInput_${f.key}" accept="image/*" multiple style="display:none"
+        onchange="handleMediaUpload('${f.key}',this)" />
+      <div class="media-preview-row" id="mediaPrev_${f.key}">${imgPrevHtml}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById('formContent').innerHTML = html;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function setField(key, value, el, groupClass) {
+  formData[key] = value;
+  el.closest(`.${groupClass}`).querySelectorAll(`.${groupClass}`)
+    .forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function setStateField(key, value, stateClass, el) {
+  formData[key] = value;
+  el.closest('.state-group').querySelectorAll('.state-btn')
+    .forEach(b => b.classList.remove('selected-good', 'selected-damaged', 'selected-replaced'));
+  el.classList.add(stateClass);
+}
+
+// ---------- Note helpers ----------
+function toggleNote(key) {
+  const area = document.getElementById('note_' + key);
+  if (!area) return;
+  const opening = area.style.display === 'none';
+  area.style.display = opening ? 'block' : 'none';
+  if (opening) area.querySelector('textarea').focus();
+}
+
+function updateNoteBtn(key) {
+  const btns = document.querySelectorAll(`[onclick="toggleNote('${key}')"]`);
+  btns.forEach(btn => {
+    const hasNote = !!(fieldNotes[key] || '').trim();
+    btn.textContent = hasNote ? '📝 Notitie bewerken ✓' : '📝 Notitie toevoegen';
+    btn.classList.toggle('has-data', hasNote);
+  });
+}
+
+// ---------- Media helpers ----------
+function triggerMedia(key) {
+  document.getElementById('fileInput_' + key).click();
+}
+
+function handleMediaUpload(key, input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  if (!fieldImages[key]) fieldImages[key] = [];
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      fieldImages[key].push(e.target.result);
+      loaded++;
+      if (loaded === files.length) {
+        renderMediaPreviews(key);
+        updateMediaBtn(key);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function renderMediaPreviews(key) {
+  const el = document.getElementById('mediaPrev_' + key);
+  if (!el) return;
+  el.innerHTML = (fieldImages[key] || []).map((src, i) => `
+    <div class="media-thumb">
+      <img src="${src}" alt="afbeelding ${i+1}" />
+      <button class="media-thumb-remove" onclick="removeMedia('${key}',${i})" title="Verwijderen">×</button>
+    </div>`).join('');
+}
+
+function removeMedia(key, index) {
+  if (fieldImages[key]) {
+    fieldImages[key].splice(index, 1);
+    renderMediaPreviews(key);
+    updateMediaBtn(key);
+  }
+}
+
+function updateMediaBtn(key) {
+  const btn = document.getElementById('mediaBtn_' + key);
+  if (!btn) return;
+  const count = (fieldImages[key] || []).length;
+  btn.textContent = count ? `📎 Media toevoegen (${count})` : '📎 Media toevoegen';
+  btn.classList.toggle('has-data', count > 0);
+}
+
+// ---------- Collect & Submit ----------
+function collectPageData(pageNum) {
+  const def = formPages[pageNum - 1];
+  const fields = [];
+  def.sections.forEach(sec => {
+    sec.fields.forEach(f => {
+      fields.push({
+        label:  f.label,
+        value:  formData[f.key] || '',
+        note:   fieldNotes[f.key]  || '',
+        images: fieldImages[f.key] ? [...fieldImages[f.key]] : []
+      });
+    });
+  });
+  return { fields };
+}
+
+const POWER_AUTOMATE_URL = 'https://default55a84428abf847f58870ca08c2e16a.f7.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/f18b95da412d4b91a10b3ed1c10adba1/triggers/manual/paths/invoke?api-version=1';
+
+async function submitPage() {
+  const allFields = [];
+  for (let i = 1; i <= TOTAL_FORM_PAGES; i++) {
+    allFields.push(...collectPageData(i).fields);
+  }
+  const allData = { fields: allFields };
+
+  console.log('📋 Alle pagina\'s JSON:', JSON.stringify(allData, null, 2));
+
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Verzenden…';
+
+  showToast('Inspectie verzenden…');
+
+  try {
+    // Acquire token for Power Automate
+    const paScopes = { scopes: ['https://service.flow.microsoft.com/.default'], account: currentAccount };
+    let paToken;
+    try {
+      const result = await msalApp.acquireTokenSilent(paScopes);
+      paToken = result.accessToken;
+    } catch {
+      const result = await msalApp.acquireTokenRedirect(paScopes);
+      return;
+    }
+
+    const r = await fetch(POWER_AUTOMATE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + paToken
+      },
+      body: JSON.stringify(allData)
+    });
+
+    if (!r.ok) {
+      const errText = await r.text().catch(() => '');
+      throw new Error('HTTP ' + r.status + (errText ? ': ' + errText : ''));
+    }
+
+    Object.assign(pageResults, { all: allData });
+    showToast('✅ Inspectie succesvol verzonden!', 'success');
+    console.log('✅ POST geslaagd');
+
+    setTimeout(() => {
+      showPage('home');
+      loadInspections();
+    }, 1800);
+  } catch (e) {
+    console.error('POST fout:', e);
+    showToast('❌ Verzenden mislukt: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = '💾 Opslaan';
+  }
+}
+
+function prevPage() {
+  if (currentFormPage > 1) renderFormPage(currentFormPage - 1);
+}
+
+async function nextPage() {
+  if (currentFormPage < TOTAL_FORM_PAGES) {
+    renderFormPage(currentFormPage + 1);
+  } else {
+    await submitInspection();
+  }
+}
+
+// ---------- Submit via Graph API ----------
+async function submitInspection() {
+  showToast('Inspectie opslaan…');
+  try {
+    const sid = await getSiteId();
+    const lid = await getListId();
+
+    const fields = {
+      Title:                    formData.ReferentienummerIPG    || '',
+      Klant:                    formData.Klant                  || '',
+      FabrikaatPomp:            formData.FabrikaatPomp          || '',
+      Pomptype:                 formData.Pomptype               || '',
+      Serienummer:              formData.Serienummer            || '',
+      DatumInspectie:           formData.DatumInspectie         || '',
+      MediumVanDePomp:          formData.MediumVanDePomp        || '',
+      IsGespoeldAfgevlamd:      formData.IsGespoeldAfgevlamd    || '',
+      IsOlieAfgetapt:           formData.IsOlieAfgetapt         || '',
+      VGMVerklaring:            formData.VGMVerklaring          || '',
+      WaterDiameter:            formData.WaterDiameter          || '',
+      Capaciteit:               formData.Capaciteit             || '',
+      Opvoerhoogte:             formData.Opvoerhoogte           || '',
+      Toerental:                formData.Toerental              || '',
+      FabrikaatMotor:           formData.FabrikaatMotor         || '',
+      Vermogen:                 formData.Vermogen               || '',
+      Isolatieklasse:           formData.Isolatieklasse         || '',
+      OmwentelingenPerMinuut:   formData.OmwentelingenPerMinuut || '',
+      FrameNummer:              formData.FrameNummer            || '',
+      Frequentie:               formData.Frequentie             || '',
+      Voltage:                  formData.Voltage                || '',
+      Amperage:                 formData.Amperage               || '',
+      SerieNummer2:             formData.SerieNummer2           || '',
+      Rotor:                    formData.Rotor                  || '',
+      Stator:                   formData.Stator                 || '',
+      As:                       formData.As                     || '',
+      Koppeling:                formData.Koppeling              || '',
+      Pakkingen:                formData.Pakkingen              || '',
+      MechSeal:                 formData.MechSeal               || '',
+      Slijringen:               formData.Slijringen             || '',
+      Lagering:                 formData.Lagering               || '',
+      Pompfluis:                formData.Pompfluis              || '',
+      Waaier:                   formData.Waaier                 || '',
+      OverigeBevindingen:       formData.OverigeBevindingen     || '',
+      UrenOntvangst:            formData.UrenOntvangst          || '',
+      UrenSchoonmaak:           formData.UrenSchoonmaak         || '',
+      UrenDemontage:            formData.UrenDemontage          || '',
+      UrenInspectie:            formData.UrenInspectie          || '',
+      SchattingMontage:         formData.SchattingMontage       || '',
+      SchattingSpuiten:         formData.SchattingSpuiten       || '',
+      SchattingAfsersen:        formData.SchattingAfsersen      || '',
+      SchattingEindinspectie:   formData.SchattingEindinspectie || '',
+      BenodigenOnderdelen:      formData.BenodigenOnderdelen    || '',
+      OnderdelenDerdepartij:    formData.OnderdelenDerdepartij  || '',
+    };
+
+    const r = await graphFetch(
+      `https://graph.microsoft.com/v1.0/sites/${sid}/lists/${lid}/items`,
+      { method: 'POST', body: JSON.stringify({ fields }) }
+    );
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err.error?.message) || 'HTTP ' + r.status);
+    }
+
+    showToast('✅ Inspectie succesvol opgeslagen!', 'success');
+    setTimeout(() => { showPage('home'); loadInspections(); }, 1500);
+  } catch (e) {
+    console.error(e);
+    showToast('❌ Fout bij opslaan: ' + e.message, 'error');
+  }
+}
+
+// ---------- Init ----------
+msalReady = initApp();
+</script>
+</body>
+</html>
